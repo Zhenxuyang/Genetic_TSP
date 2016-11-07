@@ -13,19 +13,24 @@ f)ÖÕÖ¹Ìõ¼şÅĞ¶Ï:Èôt=T,ÔòÒÔ½ø»¯¹ı³ÌÖĞËùµÃµ½µÄ¾ßÓĞ×î´óÊÊÓ¦¶È¸öÌå×÷Îª×îÓÅ½âÊä³ö£¬ÖÕÖ
 
 #include <iostream>
 #include <time.h>
+#include <windows.h>
 using namespace std;
 
 #define citynum 10 //³ÇÊĞµÄ¸öÊıÎª10
-#define MaxGeneration 100 //µü´úµÄ´ÎÊı
+#define MaxGeneration 20//µü´úµÄ´ÎÊı
 #define population 10 //ÖÖÈº´óĞ¡
+#define mate_p 0.4//È¾É«Ìå¼ä½»ÅäµÄ¸ÅÂÊ
+#define mutate_p 0.5//È¾É«Ìå±äÒìµÄ¸ÅÂÊ
 int citydistance[citynum][citynum]; //³ÇÊĞ¼ä¾àÀë
+
 
 struct group{
 	int citys[citynum]; //³ÇÊĞµÄÅÅĞò
 	int adapt; //¸Ã³ÇÊĞÅÅĞòµÄÊÊÓ¦¶È
 	double p; //¸Ã³ÇÊĞÅÅĞòµÄÉú´æ»úÂÊ
-}tempgroups[population],resultgroup[population];
+}groups[population],tempgroups[population];
 
+group best;//×îºÃµÄ½á¹û
 //¸ø³ö³ÇÊĞ¼ä¾àÀë
 void Init(){
 	cout<<"------³ÇÊĞ¼äµÄ¾àÀë¾ØÕó³õÊ¼»¯Îª:------"<<endl;
@@ -103,22 +108,239 @@ void evaluate(){
 	//ÕÒµ½Éú´æ¸ÅÂÊ×î´óµÄÈ¾É«Ìå
 	int best_p=0;
 	for(i=0;i<population;i++){
-		if(tempgroups[i].adapt>tempgroups[best_p].adapt)
+		if(tempgroups[i].p>tempgroups[best_p].p)
 			best_p=i;
-	}	
+	}
+	best=tempgroups[best_p];
 	cout<<"¸ÃÖÖÈºÖĞÈ¾É«ÌåµÄÉú´æ¸ÅÂÊÎª£º"<<endl;
 	for (i=0;i<population;i++){
 		cout<<i<<"  "<<tempgroups[i].p<<endl;
 	}
 }
 
-//Ñ¡Ôñº¯Êı
+//Ñ¡Ôñº¯Êı,²ÉÓÃ¡°ÂÖÅÌ¶Ä¡±µÄÑ¡Ôñ·½·¨£¬¼´Ëæ»ú¸ÅÂÊÂäÔÚÌİ¶È¸ÅÂÊÄÚ
 void choose(){
-
+	double gradient[population]; //Ìİ¶È¸ÅÂÊ
+	double random[population]; //Ñ¡ÔñÈ¾É«ÌåµÄËæ»ú¸ÅÂÊ
+	int choice[population];//Ñ¡ÖĞµÄÈ¾É«Ìå
+	int i,j;
+	//¼ÆËãÈ¾É«ÌåµÄÌİ¶È¸ÅÂÊ--ÂÖÅÌµÄÉ«¿é
+	gradient[0]=tempgroups[0].p;
+	for (i=1;i<population;i++){
+		gradient[i]=gradient[i-1]+tempgroups[i].p;
+	}
+	//µÃµ½È¾É«ÌåÑ¡ÔñµÄËæ»ú¸ÅÂÊ--ÂÖÅÌµÄ×ªÕë
+	srand((unsigned)time(NULL));
+	double k;
+	for(i=0;i<population;i++){
+		k=rand()%100;
+		random[i]=k/100;
+	}
+	//¿ªÊ¼Ñ¡Ôñ
+	for(i=0;i<population;i++)
+		for(j=0;j<population;j++){
+			if(random[i]<gradient[j]){
+				choice[i]=j;//µÚjÌõÈ¾É«Ìå±»Ñ¡ÖĞ
+				break;
+			}
+		}	
+	//¸üĞÂÖÖÈº,×¢ÒâÓ¦ÏÈ¿½±´ÖÖÈº£¡£¡£¡
+	for(i=0;i<population;i++){
+		groups[i].adapt=tempgroups[i].adapt;
+		groups[i].p=tempgroups[i].p;
+		for(j=0;j<citynum;j++){
+			groups[i].citys[j]=tempgroups[i].citys[j];
+		}
+	}
+	int temp;
+	for(i=0;i<population;i++){
+			temp=choice[i];
+			tempgroups[i].adapt=groups[temp].adapt;
+			tempgroups[i].p=groups[temp].p;
+			for(j=0;j<citynum;j++)
+				tempgroups[i].citys[j]=groups[temp].citys[j];
+	}
 }
-int main(){
-	Init();
-	GeneProduce();
-	evaluate();
+
+//ÅĞ¶ÏÈ¾É«ÌåÖĞÊÇ·ñ´æÔÚ³åÍ»
+bool judge(int temp,int point1,int point2){
+	bool result=false;
+	int i,j;
+	for(i=0;i<point1;i++){
+		for(j=point1;j<=point2;j++){
+			if(tempgroups[temp].citys[i]==tempgroups[temp].citys[j]){
+				result=true;
+				break;
+			}
+		}
+		if(result) break;
+	}
+	for(i=point2+1;i<citynum;i++){
+		for(j=point1;j<=point2;j++){
+			if(tempgroups[temp].citys[i]==tempgroups[temp].citys[j]){
+				result=true;
+				break;
+			}
+		}
+		if(result) break;
+	}
+	return result;
+}
+
+//½»Åäº¯Êı
+void generate(){
+	int i,j;
+	double mate[population];//Ëæ»ú²úÉú¸÷È¾É«Ìå½»ÅäµÄ¸ÅÂÊ
+	int flag[population]={0};//È¾É«ÌåÊÇ·ñÄÜ½»ÅäµÄ±ê¼Ç
+	int num=0;//ÄÜ¹»½»ÅäµÄÈ¾É«ÌåÊıÄ¿
+	int temp1,temp2;//½»ÅäµÄÁ½ÌõÈ¾É«Ìå
+	int point1,point2;//½»ÅäµÄÁ½¸ö¶Ëµã
+	//Ëæ»úÑ¡³ö¿É½»ÅäµÄÈ¾É«Ìå
+	srand((unsigned)time(NULL));
+	for(i=0;i<population;i++){
+		mate[i]=rand()%100;
+		mate[i]=mate[i]/100;
+		if(mate[i]<mate_p){
+			flag[i]=1;
+			num++;
+		}
+	}
+	//±£Ö¤½»ÅäµÄÈ¾É«ÌåÊıÄ¿ÊÇÅ¼Êı
+	num=num/2*2;
+	//È¾É«ÌåÁ½Á½½»Åä£¬¹²½»Åät/2´Î
+	for (i=0;i<num/2;i++){
+		//ÕÒ³ö´Ë´Î½»ÅäµÄÁ½ÌõÈ¾É«Ìå
+		for(j=0;j<population;j++){
+			if(flag[j]==1){
+				temp1=j;
+				break;
+			}
+		}
+		for(j=temp1+1;j<population;j++){
+			if(flag[j]==1){
+				temp2=j;
+				break;
+			}
+		}
+		//Ëæ»ú²úÉúÈ¾É«Ìå½»ÅäµÄ¶Ëµã
+		srand((unsigned)time(NULL));
+		point1=rand()%citynum;
+		point2=rand()%citynum;
+		if(point1>point2){
+			int t;
+			t=point2;
+			point2=point1;
+			point1=t;
+		}
+		//½»»»¶Ëµã¼äµÄÈ¾É«Ìå
+		int copy1[citynum]={0},copy2[citynum]={0};
+		for(i=point1;i<=point2;i++){
+			int t;
+			copy1[i]=tempgroups[temp1].citys[i];
+			copy2[i]=tempgroups[temp2].citys[i];
+			t=tempgroups[temp1].citys[i];
+			tempgroups[temp1].citys[i]=tempgroups[temp2].citys[i];
+			tempgroups[temp2].citys[i]=t;
+		}
+		
+		//¿ÉÄÜ²úÉú³åÍ»£¬Ïû³ı³åÍ»
+		bool conflict1=false,conflict2=false;//ÅĞ¶ÏÁ½ÌõÈ¾É«ÌåÖĞÊÇ·ñÓĞ³åÍ»
+		conflict1=judge(temp1,point1,point2);
+		conflict2=judge(temp2,point1,point2);
+		while (conflict1){
+			for(i=0;i<point1;i++){
+				for(j=point1;j<=point2;j++){
+					if(tempgroups[temp1].citys[i]==tempgroups[temp1].citys[j]){
+						tempgroups[temp1].citys[i]=copy1[j];
+						break;
+					}
+				}
+			}
+			for(i=point2;i<citynum;i++){
+				for(j=point1;j<=point2;j++){
+					if(tempgroups[temp1].citys[i]==tempgroups[temp1].citys[j]){
+						tempgroups[temp1].citys[i]=copy1[j];
+						break;
+					}
+				}
+			}
+			conflict1=judge(temp1,point1,point2);
+		}
+		while(conflict2){
+			for(i=0;i<point1;i++){
+				for(j=point1;j<=point2;j++){
+					if(tempgroups[temp2].citys[i]==tempgroups[temp2].citys[j]){
+						tempgroups[temp2].citys[i]=copy2[j];
+						break;
+					}
+				}
+			}
+			for(i=point2;i<citynum;i++){
+				for(j=point1;j<=point2;j++){
+					if(tempgroups[temp2].citys[i]==tempgroups[temp2].citys[j]){
+						tempgroups[temp2].citys[i]=copy2[j];
+						break;
+					}
+				}
+			}
+			conflict2=judge(temp1,point1,point2);
+		}
+		//½«temp1ºÍtemp2ÖÃÎª²»¿É½»Åä×´Ì¬
+		flag[temp1]=0;
+		flag[temp2]=0;
+	}
+}
+
+
+
+//±äÒìº¯Êı
+void mutate(){
+	int i,t;
+	double p;
+	int flag[population]={0};//È¾É«ÌåÊÇ·ñÄÜ±äÒìµÄ±ê¼Ç
+	srand((unsigned)time(NULL));
+	for(i=0;i<population;i++){
+		t=rand()%100;
+		p=(double)t/100;
+		if(p<mutate_p) flag[i]=1;
+	}
+	//±äÒì²Ù×÷
+	int point1,point2;
+	srand((unsigned)time(NULL));
+	for(i=0;i<population;i++){
+		if(flag[i]==1){
+			point1=rand()%citynum;
+			point2=rand()%citynum;
+			t=tempgroups[i].citys[point1];
+			tempgroups[i].citys[point1]=tempgroups[i].citys[point2];
+			tempgroups[i].citys[point2]=t;
+		}
+	}
+}
+int test(){
+	int i;
+	Init();//³õÊ¼»¯
+	GeneProduce();//²úÉúµÚÒ»´úÖÖÈº
+	evaluate();//ÆÀ¼ÛµÚÒ»´úÖÖÈº
+	for(i=0;i<MaxGeneration;i++){
+		choose();
+		//generate();
+		mutate();
+		evaluate();
+	}
+	cout<<"¾­¹ı"<<MaxGeneration<<"´úºó×î¼ÑµÄÈ¾É«ÌåÎª"<<endl;
+	for(i=0;i<citynum;i++){
+		cout<<best.citys[i]<<" ";
+	}
+	cout<<endl;
+	cout<<"Éú´æ¸ÅÂÊÎª"<<best.p<<endl;
 	return 0;
+}
+
+void main(){
+	for (int i=0;i<10;i++)
+	{
+		test();
+		Sleep(1000);
+	}
 }
